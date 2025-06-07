@@ -2,6 +2,8 @@
 
 A modern website to showcase books from 'https://github.com/benoitvallon/100-best-books/blob/master/books.json'. Built with Next.js and TypeScript, featuring a responsive design and Google Books API integration for book covers.
 
+link: book-shelf-seven-ebon.vercel.app
+
 ## ✨ Features
 
 - Grid and list view modes for book display
