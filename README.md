@@ -1,6 +1,6 @@
 # 📚 BookShelf
 
-A modern web application for managing and displaying your personal book collection but in this case data from github. Built with Next.js and TypeScript, featuring a responsive design and Google Books API integration for book covers.
+A modern website to showcase books from 'https://github.com/benoitvallon/100-best-books/blob/master/books.json'. Built with Next.js and TypeScript, featuring a responsive design and Google Books API integration for book covers.
 
 ## ✨ Features
 
