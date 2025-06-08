@@ -5,38 +5,57 @@ export default function BookList({ books, viewMode, isLoading = false }) {
   const [booksWithCovers, setBooksWithCovers] = useState([]);
   const [isFetchingCovers, setIsFetchingCovers] = useState(false);
 
-  useEffect(() => {
-    async function fetchCovers() {
-      setIsFetchingCovers(true);
-      const booksWithImages = await Promise.all(
-        books.map(async (book) => {
-          try {
-            const query = encodeURIComponent(
-              `intitle:${book.title}+inauthor:${book.author}`
-            );
-            const res = await fetch(
-              `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`
-            );
-            const data = await res.json();
-            const imageLinks = data.items?.[0]?.volumeInfo?.imageLinks;
-            const coverUrl =
-              imageLinks?.extraLarge ||
-              imageLinks?.large ||
-              imageLinks?.medium ||
-              imageLinks?.thumbnail ||
-              imageLinks?.smallThumbnail ||
-              undefined;
-            return { ...book, coverUrl };
-          } catch {
-            return { ...book, coverUrl: undefined };
-          }
-        })
+  const fetchGoogleBookCover = async (book) => {
+    try {
+      const query = encodeURIComponent(`intitle:${book.title}+inauthor:${book.author}`);
+      const res = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`
       );
-      setBooksWithCovers(booksWithImages);
-      setIsFetchingCovers(false);
+      const data = await res.json();
+      const imageLinks = data.items?.[0]?.volumeInfo?.imageLinks;
+      return imageLinks?.thumbnail || imageLinks?.smallThumbnail;
+    } catch {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    async function loadCovers() {
+      setIsFetchingCovers(true);
+      try {
+        const booksWithImages = await Promise.all(
+          books.map(async (book) => {
+            // Try GitHub image first
+            const filename = book.title
+              .toLowerCase()
+              .replace(/[^a-z0-9\s]/g, "")
+              .replace(/\s+/g, "-");
+            const githubUrl = `https://raw.githubusercontent.com/benoitvallon/100-best-books/master/static/images/${filename}.jpg`;
+            
+            try {
+              const response = await fetch(githubUrl, { method: 'HEAD' });
+              if (response.ok) {
+                return { ...book, coverUrl: githubUrl };
+              }
+              // If GitHub image fails, try Google Books
+              const googleCover = await fetchGoogleBookCover(book);
+              return { ...book, coverUrl: googleCover || null };
+            } catch {
+              // If both fail, return book without cover
+              return { ...book, coverUrl: null };
+            }
+          })
+        );
+        setBooksWithCovers(booksWithImages || []);
+      } catch (error) {
+        console.error("Error loading covers:", error);
+        setBooksWithCovers(books.map(book => ({ ...book, coverUrl: null })));
+      } finally {
+        setIsFetchingCovers(false);
+      }
     }
 
-    fetchCovers();
+    loadCovers();
   }, [books]);
 
   if (isLoading || isFetchingCovers) {
