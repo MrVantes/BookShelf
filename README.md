@@ -44,7 +44,7 @@ npm run dev
 ## 🛠️ Tech Stack
 
 - [Next.js](https://nextjs.org/) - React framework
-- [TypeScript -> Javascript](https://www.typescriptlang.org/) - Type safety, yet I forgot requirement was js
+- [Javascript](https://www.typescriptlang.org/) - ts better
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [Google Books API](https://developers.google.com/books) - Book cover images
 
