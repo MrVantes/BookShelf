@@ -1,6 +1,6 @@
 # 📚 BookShelf
 
-A modern website to showcase books from 'https://github.com/benoitvallon/100-best-books/blob/master/books.json'. Built with Next.js and TypeScript, featuring a responsive design and Google Books API integration for book covers.
+A modern website to showcase books from 'https://github.com/benoitvallon/100-best-books/blob/master/books.json'. Built with Next.js and TypeScript, featuring a responsive design and Google Books API integration for book covers if github fails to provide.
 
 ## 🚀 Deployed to Vercel
 
@@ -188,7 +188,7 @@ function handleErrors {
         USE placeholder image
         LOG error
     }
-    
+
     IF book data missing {
         DISPLAY placeholder text
     }
