@@ -1,8 +1,13 @@
 import * as React from "react"
+import { clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
 
-import { cn } from "@/lib/utils"
+// Utility function for combining classnames
+const cn = (...inputs) => {
+  return twMerge(clsx(inputs))
+}
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, ...props }) {
   return (
     <input
       type={type}

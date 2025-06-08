@@ -1,31 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
 
-type Book = {
-  title: string;
-  author: string;
-  language: string;
-  link: string;
-  pages: number;
-  year: number;
-};
-
-type BookWithCover = Book & {
-  coverUrl?: string;
-};
-
-interface BookListProps {
-  books: Book[];
-  viewMode: "grid" | "list";
-  isLoading?: boolean;
-}
-
-export default function BookList({
-  books,
-  viewMode,
-  isLoading = false,
-}: BookListProps) {
-  const [booksWithCovers, setBooksWithCovers] = useState<BookWithCover[]>([]);
+export default function BookList({ books, viewMode, isLoading = false }) {
+  const [booksWithCovers, setBooksWithCovers] = useState([]);
   const [isFetchingCovers, setIsFetchingCovers] = useState(false);
 
   useEffect(() => {

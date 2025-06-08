@@ -2,20 +2,18 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import debounce from "lodash/debounce";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import FilterBar from "@/components/FilterBar";
-import BookList from "@/components/BookList";
+import { Input } from "../components/ui/input";
+import { Search, ChevronLeft, ChevronRight, Library } from "lucide-react";
+import FilterBar from "../components/FilterBar";
+import BookList from "../components/BookList";
 import booksData from "./data/books.json";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Library } from "lucide-react";
+import { Button } from "../components/ui/button";
 
 export default function Home() {
   const [search, setSearch] = useState("");
   const [selectedPagesRange, setSelectedPagesRange] = useState("All Pages");
   const [selectedCentury, setSelectedCentury] = useState("All Years");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState("grid");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [selectedCountry, setSelectedCountry] = useState("");
@@ -45,51 +43,39 @@ export default function Home() {
     "21st century",
   ];
 
-  // Move searchIndex to the top
   const searchIndex = useMemo(() => {
     return booksData.map((book) => ({
       ...book,
-      searchString:
-        `${book.title} ${book.author} ${book.language}`.toLowerCase(),
+      searchString: `${book.title} ${book.author} ${book.language}`.toLowerCase(),
     }));
   }, []);
 
-  // Get unique countries and languages from books data
   const countries = useMemo(() => {
     const uniqueCountries = [...new Set(booksData.map((book) => book.country))];
     return uniqueCountries.sort();
   }, []);
 
   const languages = useMemo(() => {
-    const uniqueLanguages = [
-      ...new Set(booksData.map((book) => book.language)),
-    ];
+    const uniqueLanguages = [...new Set(booksData.map((book) => book.language))];
     return uniqueLanguages.sort();
   }, []);
 
-  const pagesMatch = useCallback(
-    (bookPages: number, range: string): boolean => {
-      if (range === "All Pages") return true;
-      if (range === "501+") return bookPages >= 501;
-      const [minStr, maxStr] = range.split("-");
-      return bookPages >= Number(minStr) && bookPages <= Number(maxStr);
-    },
-    []
-  );
+  const pagesMatch = useCallback((bookPages, range) => {
+    if (range === "All Pages") return true;
+    if (range === "501+") return bookPages >= 501;
+    const [minStr, maxStr] = range.split("-");
+    return bookPages >= Number(minStr) && bookPages <= Number(maxStr);
+  }, []);
 
-  const yearMatch = useCallback(
-    (bookYear: number, century: string): boolean => {
-      if (century === "All Years") return true;
-      const centNum = Number(century.split("th")[0]);
-      if (isNaN(centNum)) return true;
-      const startYear = (centNum - 1) * 100 + 1;
-      const endYear = centNum * 100;
-      return bookYear >= startYear && bookYear <= endYear;
-    },
-    []
-  );
+  const yearMatch = useCallback((bookYear, century) => {
+    if (century === "All Years") return true;
+    const centNum = Number(century.split("th")[0]);
+    if (isNaN(centNum)) return true;
+    const startYear = (centNum - 1) * 100 + 1;
+    const endYear = centNum * 100;
+    return bookYear >= startYear && bookYear <= endYear;
+  }, []);
 
-  // Update useMemo dependencies
   const { paginatedBooks, totalPages } = useMemo(() => {
     setIsFiltering(true);
     const lowerSearch = debouncedSearch.toLowerCase();
@@ -97,15 +83,9 @@ export default function Home() {
     const filtered = searchIndex.filter((book) => {
       if (selectedCountry && book.country !== selectedCountry) return false;
       if (selectedLanguage && book.language !== selectedLanguage) return false;
-      if (
-        selectedPagesRange !== "All Pages" &&
-        !pagesMatch(book.pages, selectedPagesRange)
-      )
+      if (selectedPagesRange !== "All Pages" && !pagesMatch(book.pages, selectedPagesRange))
         return false;
-      if (
-        selectedCentury !== "All Years" &&
-        !yearMatch(book.year, selectedCentury)
-      )
+      if (selectedCentury !== "All Years" && !yearMatch(book.year, selectedCentury))
         return false;
       if (lowerSearch && !book.searchString.includes(lowerSearch)) return false;
       return true;
@@ -134,18 +114,16 @@ export default function Home() {
     setCurrentPage(1);
   }, [debouncedSearch, selectedPagesRange, selectedCentury, itemsPerPage]);
 
-  // Debounce search updates
   const debouncedSetSearch = useMemo(
     () =>
-      debounce((value: string) => {
+      debounce((value) => {
         setDebouncedSearch(value);
       }, 200),
     []
   );
 
-  // Update search immediately but debounce the filtering
   const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e) => {
       setSearch(e.target.value);
       debouncedSetSearch(e.target.value);
     },

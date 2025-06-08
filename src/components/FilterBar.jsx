@@ -1,30 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "../components/ui/dropdown-menu";
 import { Filter, LayoutGrid, List } from "lucide-react";
-
-interface FilterBarProps {
-  pageRanges: string[];
-  centuries: string[];
-  selectedPagesRange: string;
-  selectedCentury: string;
-  onPagesRangeChange: (range: string) => void;
-  onCenturyChange: (century: string) => void;
-  viewMode: "grid" | "list";
-  onViewChange: (view: "grid" | "list") => void;
-  countries: string[];
-  languages: string[];
-  selectedCountry: string;
-  selectedLanguage: string;
-  onCountryChange: (country: string) => void;
-  onLanguageChange: (language: string) => void;
-}
 
 export default function FilterBar({
   pageRanges,
@@ -41,11 +24,9 @@ export default function FilterBar({
   selectedLanguage,
   onCountryChange,
   onLanguageChange,
-}: FilterBarProps) {
+}) {
   return (
     <div className="relative">
-      {" "}
-      {/* Add relative positioning */}
       {/* Filter Label */}
       <div className="flex justify-center items-center gap-1 mb-2">
         <Filter size={12} />
