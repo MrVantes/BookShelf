@@ -68,7 +68,8 @@ type Book {
     pages: number
     year: number
     link: string
-    coverUrl?: string
+    country: string
+    imageLink: string
 }
 
 // Main Application Flow
