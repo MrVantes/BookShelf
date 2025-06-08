@@ -18,7 +18,7 @@ Using this link: https://book-shelf-seven-ebon.vercel.app/
   - Publication year
   - Cover images
 
-## 🚀 Getting Started
+## 🏃🏾 Getting Started
 
 1. Clone the repository:
 
@@ -55,6 +55,143 @@ src/
 ├── components/     # React components
 └── app/            # Next.js pages
   └── data/         # books.json
+```
+
+## 🖥️ Pseudo Code
+
+```
+// Data Structure
+type Book {
+    title: string
+    author: string
+    language: string
+    pages: number
+    year: number
+    link: string
+    coverUrl?: string
+}
+
+// Main Application Flow
+function BookShelfApp {
+    // State Management
+    books = loadBooksFromJSON()
+    viewMode = "grid" or "list"
+    darkMode = getUserPreference()
+
+    // Main Components
+    Header {
+        Logo
+        ViewModeToggle(viewMode)
+        DarkModeToggle(darkMode)
+    }
+
+    BookList(books, viewMode) {
+        // Book Cover Fetching
+        FOR each book IN books {
+            coverUrl = fetchFromGoogleBooksAPI(book.title, book.author)
+            IF coverUrl exists {
+                book.coverUrl = coverUrl
+            }
+        }
+
+        // Display Logic
+        IF viewMode is "grid" {
+            DisplayBooksInGrid(books)
+        } ELSE {
+            DisplayBooksInList(books)
+        }
+    }
+
+    Footer {
+        DisplayProjectInfo()
+    }
+}
+
+// Book Display Components
+function DisplayBooksInGrid(books) {
+    CREATE 2x2 grid for mobile
+    CREATE 4x4 grid for desktop
+    FOR each book IN books {
+        DisplayBookCard {
+            IF book.coverUrl exists {
+                ShowCoverImage
+            } ELSE {
+                ShowPlaceholder
+            }
+            DisplayBookInfo {
+                Title (clickable link)
+                Author
+                Language
+                Pages
+                Year
+            }
+        }
+    }
+}
+
+function DisplayBooksInList(books) {
+    FOR each book IN books {
+        DisplayBookRow {
+            IF book.coverUrl exists {
+                ShowCoverImage (small)
+            } ELSE {
+                ShowPlaceholder (small)
+            }
+            DisplayBookInfo {
+                Title (clickable link)
+                Author
+                Language
+                Pages
+                Year
+            }
+        }
+    }
+}
+
+// API Integration
+function fetchFromGoogleBooksAPI(title, author) {
+    query = constructSearchQuery(title, author)
+    response = GET https://www.googleapis.com/books/v1/volumes?q=${query}
+    IF response.success {
+        RETURN getBestQualityCover(response.imageLinks)
+    } ELSE {
+        RETURN undefined
+    }
+}
+
+// Responsive Design Logic
+function handleResponsiveLayout {
+    IF screenWidth < 768px {
+        USE mobile layout
+        2 columns grid
+    } ELSE {
+        USE desktop layout
+        4 columns grid
+    }
+}
+
+// Dark Mode Implementation
+function toggleDarkMode {
+    IF darkMode is active {
+        APPLY dark color scheme
+        STORE preference
+    } ELSE {
+        APPLY light color scheme
+        STORE preference
+    }
+}
+
+// Error Handling
+function handleErrors {
+    IF API fetch fails {
+        USE placeholder image
+        LOG error
+    }
+    
+    IF book data missing {
+        DISPLAY placeholder text
+    }
+}
 ```
 
 ## 📝 License
