@@ -193,6 +193,133 @@ function handleErrors {
         DISPLAY placeholder text
     }
 }
+
+## 🔍 Search and Filter Logic
+
+```
+// Search Index Creation
+function createSearchIndex(books) {
+    RETURN books.map(book => ({
+        ...book,
+        searchString: LOWERCASE(CONCAT(book.title, book.author, book.language))
+    }))
+}
+
+// Filter Logic
+function filterBooks(books, filters) {
+    SET filteredBooks = books
+
+    // Search Filter
+    IF searchQuery NOT EMPTY {
+        filteredBooks = filteredBooks.FILTER(book => 
+            book.searchString.INCLUDES(LOWERCASE(searchQuery))
+        )
+    }
+
+    // Country Filter
+    IF selectedCountry NOT EMPTY {
+        filteredBooks = filteredBooks.FILTER(book => 
+            book.country EQUALS selectedCountry
+        )
+    }
+
+    // Language Filter
+    IF selectedLanguage NOT EMPTY {
+        filteredBooks = filteredBooks.FILTER(book => 
+            book.language EQUALS selectedLanguage
+        )
+    }
+
+    // Pages Range Filter
+    IF selectedPagesRange NOT "All Pages" {
+        IF selectedPagesRange EQUALS "501+" {
+            filteredBooks = filteredBooks.FILTER(book => 
+                book.pages >= 501
+            )
+        } ELSE {
+            SET [minPages, maxPages] = selectedPagesRange.SPLIT("-")
+            filteredBooks = filteredBooks.FILTER(book => 
+                book.pages >= minPages AND book.pages <= maxPages
+            )
+        }
+    }
+
+    // Century Filter
+    IF selectedCentury NOT "All Years" {
+        SET centuryNumber = PARSE_NUMBER(selectedCentury)
+        SET startYear = (centuryNumber - 1) * 100 + 1
+        SET endYear = centuryNumber * 100
+        
+        filteredBooks = filteredBooks.FILTER(book => 
+            book.year >= startYear AND book.year <= endYear
+        )
+    }
+
+    RETURN filteredBooks
+}
+
+// Pagination Logic
+function paginateBooks(filteredBooks, currentPage, itemsPerPage) {
+    SET totalPages = CEIL(filteredBooks.length / itemsPerPage)
+    SET startIndex = (currentPage - 1) * itemsPerPage
+    SET endIndex = startIndex + itemsPerPage
+    
+    RETURN {
+        paginatedBooks: filteredBooks.SLICE(startIndex, endIndex),
+        totalPages: totalPages,
+        totalItems: filteredBooks.length
+    }
+}
+
+// Search and Filter State Management
+function handleSearchAndFilter {
+    // Initialize States
+    SET searchQuery = ""
+    SET selectedCountry = ""
+    SET selectedLanguage = ""
+    SET selectedPagesRange = "All Pages"
+    SET selectedCentury = "All Years"
+    SET currentPage = 1
+    SET itemsPerPage = 12
+
+    // Create Memoized Search Index
+    SET searchIndex = MEMOIZE(createSearchIndex(books))
+
+    // Handle Search Input
+    ON searchInput CHANGE {
+        SET searchQuery = event.value
+        DEBOUNCE updateResults(200ms)
+    }
+
+    // Handle Filter Changes
+    ON filterChange {
+        SET respective_filter = new_value
+        SET currentPage = 1
+        updateResults()
+    }
+
+    // Update Results
+    function updateResults {
+        SET isLoading = true
+        SET filteredBooks = filterBooks(
+            searchIndex, 
+            {
+                searchQuery,
+                selectedCountry,
+                selectedLanguage,
+                selectedPagesRange,
+                selectedCentury
+            }
+        )
+        SET paginationResult = paginateBooks(
+            filteredBooks,
+            currentPage,
+            itemsPerPage
+        )
+        UPDATE UI with paginationResult
+        SET isLoading = false
+    }
+}
 ```
 
 ## 📝 License
