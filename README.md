@@ -171,17 +171,6 @@ function handleResponsiveLayout {
     }
 }
 
-// Dark Mode Implementation
-function toggleDarkMode {
-    IF darkMode is active {
-        APPLY dark color scheme
-        STORE preference
-    } ELSE {
-        APPLY light color scheme
-        STORE preference
-    }
-}
-
 // Error Handling
 function handleErrors {
     IF API fetch fails {
