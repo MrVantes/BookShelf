@@ -182,6 +182,7 @@ function handleErrors {
         DISPLAY placeholder text
     }
 }
+```
 
 ## 🔍 Search and Filter Logic
 
