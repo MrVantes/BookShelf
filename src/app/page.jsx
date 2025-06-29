@@ -1,34 +1,38 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import debounce from "lodash/debounce";
 import { Input } from "../components/ui/input";
 import { Search, ChevronLeft, ChevronRight, Library } from "lucide-react";
 import FilterBar from "../components/FilterBar";
 import BookList from "../components/BookList";
-import booksData from "./data/books.json";
 import { Button } from "../components/ui/button";
 
+// Replace <project-ref> with your Supabase project ref
+const SUPABASE_EDGE_URL = "https://ekxqpkvvdonvpliouoes.supabase.co/functions/v1/search-books";
+
 export default function Home() {
-  // Search and filter state management
+  // UI/filter state
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const [isFiltering, setIsFiltering] = useState(false);
-
-  // Filter states
   const [selectedPagesRange, setSelectedPagesRange] = useState("All Pages");
   const [selectedCentury, setSelectedCentury] = useState("All Years");
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("");
-
-  // View and pagination states
   const [viewMode, setViewMode] = useState("grid");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
+  // Data state
+  const [paginatedBooks, setPaginatedBooks] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [countries, setCountries] = useState([]);
+  const [languages, setLanguages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Filter options
   const PAGE_SIZE_OPTIONS = [20, 50, 100];
-
   const pageRanges = [
     "All Pages",
     "1-100",
@@ -38,7 +42,6 @@ export default function Home() {
     "401-500",
     "501+",
   ];
-
   const centuries = [
     "All Years",
     "16th century",
@@ -49,101 +52,11 @@ export default function Home() {
     "21st century",
   ];
 
-  // Create search index for faster filtering
-  const searchIndex = useMemo(() => {
-    return booksData.map((book) => ({
-      ...book,
-      // Combine searchable fields into a single lowercase string
-      searchString: `${book.title} ${book.author} ${book.language}`.toLowerCase(),
-    }));
-  }, []);
-
-  // Extract unique countries and languages for filter options
-  const countries = useMemo(() => {
-    const uniqueCountries = [...new Set(booksData.map((book) => book.country))];
-    return uniqueCountries.sort();
-  }, []);
-
-  const languages = useMemo(() => {
-    const uniqueLanguages = [...new Set(booksData.map((book) => book.language))];
-    return uniqueLanguages.sort();
-  }, []);
-
-  // Helper function to check if a book's page count matches the selected range
-  const pagesMatch = useCallback((bookPages, range) => {
-    if (range === "All Pages") return true;
-    if (range === "501+") return bookPages >= 501;
-    const [minStr, maxStr] = range.split("-");
-    return bookPages >= Number(minStr) && bookPages <= Number(maxStr);
-  }, []);
-
-  // Helper function to check if a book's year matches the selected century
-  const yearMatch = useCallback((bookYear, century) => {
-    if (century === "All Years") return true;
-    const centNum = Number(century.split("th")[0]);
-    if (isNaN(centNum)) return true;
-    const startYear = (centNum - 1) * 100 + 1;
-    const endYear = centNum * 100;
-    return bookYear >= startYear && bookYear <= endYear;
-  }, []);
-
-  // Main filtering and pagination logic
-  const { paginatedBooks, totalPages } = useMemo(() => {
-    setIsFiltering(true);
-    const lowerSearch = debouncedSearch.toLowerCase();
-
-    // Apply all filters
-    const filtered = searchIndex.filter((book) => {
-      // Country filter
-      if (selectedCountry && book.country !== selectedCountry) return false;
-      // Language filter
-      if (selectedLanguage && book.language !== selectedLanguage) return false;
-      // Page range filter
-      if (selectedPagesRange !== "All Pages" && !pagesMatch(book.pages, selectedPagesRange))
-        return false;
-      // Century filter
-      if (selectedCentury !== "All Years" && !yearMatch(book.year, selectedCentury))
-        return false;
-      // Search text filter
-      if (lowerSearch && !book.searchString.includes(lowerSearch)) return false;
-      return true;
-    });
-
-    // Calculate pagination
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    const start = (currentPage - 1) * itemsPerPage;
-    const paginatedBooks = filtered.slice(start, start + itemsPerPage);
-
-    setIsFiltering(false);
-    return { paginatedBooks, totalPages };
-  }, [
-    searchIndex,
-    debouncedSearch,
-    selectedCountry,
-    selectedLanguage,
-    selectedPagesRange,
-    selectedCentury,
-    currentPage,
-    itemsPerPage,
-    pagesMatch,
-    yearMatch,
-  ]);
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearch, selectedPagesRange, selectedCentury, itemsPerPage]);
-
-  // Debounce search input to prevent excessive filtering
-  const debouncedSetSearch = useMemo(
-    () =>
-      debounce((value) => {
-        setDebouncedSearch(value);
-      }, 200),
+  // Debounce search input
+  const debouncedSetSearch = useCallback(
+    debounce((value) => setDebouncedSearch(value), 200),
     []
   );
-
-  // Handle search input changes
   const handleSearchChange = useCallback(
     (e) => {
       setSearch(e.target.value);
@@ -151,6 +64,55 @@ export default function Home() {
     },
     [debouncedSetSearch]
   );
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedPagesRange, selectedCentury, itemsPerPage]);
+
+  // Fetch from Supabase Edge Function
+  useEffect(() => {
+    async function fetchBooks() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(SUPABASE_EDGE_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            search: debouncedSearch,
+            selectedCountry,
+            selectedLanguage,
+            selectedPagesRange,
+            selectedCentury,
+            currentPage,
+            itemsPerPage,
+          }),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || "Failed to fetch");
+        setPaginatedBooks(result.books);
+        setTotalPages(result.totalPages);
+        setCountries(result.countries || []);
+        setLanguages(result.languages || []);
+      } catch (err) {
+        setError(err.message);
+      }
+      setLoading(false);
+    }
+    fetchBooks();
+  }, [
+    debouncedSearch,
+    selectedCountry,
+    selectedLanguage,
+    selectedPagesRange,
+    selectedCentury,
+    currentPage,
+    itemsPerPage,
+  ]);
 
   return (
     <div className="min-h-screen pb-16">
@@ -215,7 +177,7 @@ export default function Home() {
         <BookList
           books={paginatedBooks}
           viewMode={viewMode}
-          isLoading={isFiltering}
+          isLoading={loading}
         />
       </div>
 
