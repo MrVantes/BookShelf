@@ -107,8 +107,6 @@ export default function BookList({ books, viewMode, isLoading = false }) {
   };
 
 const fetchStoredImages = async () => {
-  console.log("📦 Listing images in bookcovers/covers");
-
   const { data: listData, error: listError } = await supabase.storage
     .from("bookcovers")
     .list("covers", {
@@ -117,11 +115,9 @@ const fetchStoredImages = async () => {
     });
 
   if (listError) {
-    console.error("❌ Failed to list files:", listError.message);
+    console.error("Failed to list files:", listError.message);
     return;
   }
-
-  console.log("✅ List of images:", listData);
 
   const urls = await Promise.all(
     listData.map(async (item) => {
@@ -130,7 +126,7 @@ const fetchStoredImages = async () => {
         .getPublicUrl(`covers/${item.name}`);
 
       if (publicUrlError) {
-        console.error(`❌ Failed public URL for ${item.name}:`, publicUrlError.message);
+        console.error(`Failed public URL for ${item.name}:`, publicUrlError.message);
         return null;
       }
 
@@ -142,7 +138,6 @@ const fetchStoredImages = async () => {
   );
 
   const validUrls = urls.filter(Boolean);
-  console.log("✅ Public URLs:", validUrls);
   setStoredImages(validUrls);
 };
 
