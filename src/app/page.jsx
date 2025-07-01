@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import debounce from "lodash/debounce";
 import { Input } from "../components/ui/input";
-import { Search, ChevronLeft, ChevronRight, Library } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Library, Upload } from "lucide-react";
 import FilterBar from "../components/FilterBar";
 import BookList from "../components/BookList";
 import { Button } from "../components/ui/button";
+import { useRouter } from "next/navigation";
 
 // Replace <project-ref> with your Supabase project ref
 const SUPABASE_EDGE_URL = "https://ekxqpkvvdonvpliouoes.supabase.co/functions/v1/search-books";
@@ -114,19 +115,30 @@ export default function Home() {
     itemsPerPage,
   ]);
 
+  const router = useRouter();
+
   return (
     <div className="min-h-screen pb-16">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm z-10 shadow-sm">
-        <div className="w-full max-w-7xl mx-auto px-4">
+        <div className="w-full max-w-7xl mx-auto px-4 relative">
+          {/* Upload Button (top right) */}
+          <button
+            onClick={() => router.push("/upload-cover")}
+            className="cursor-pointer absolute right-4 lg:right-8 top-2 flex items-center gap-1 border-1 border-gray-200 hover:bg-slate-200 px-3 py-1.5 rounded-md shadow transition font-medium"
+            aria-label="Upload Book Cover"
+          >
+            <Upload className="w-5 h-5" />
+            <span className="hidden sm:inline">Upload</span>
+          </button>
           {/* Title */}
           <div className="flex flex-col items-center justify-center h-16">
             <div className="flex items-center gap-2 text-center font-bold text-2xl">
-              <Library className="h-7 w-7" /> {/* Add the logo */}
+              <Library className="h-7 w-7" />
               <span>BookShelf</span>
             </div>
             <div className="text-center text-gray-500 text-xs">
-              A curated list of books from books.json
+              A curated list of books from supabase
             </div>
           </div>
 
