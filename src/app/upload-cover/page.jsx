@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/SupabaseClient";
 import { Library } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,60 @@ const Cover = () => {
   const [imageUrl, setImageUrl] = useState(null);
   const [error, setError] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [user, setUser] = useState(null);
+  const [userTier, setUserTier] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check user on mount
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        // Get tier from user metadata
+        setUserTier(data.user.user_metadata?.tier ?? null);
+      } else {
+        setUserTier(null);
+      }
+      setCheckingAuth(false);
+    });
+    // Listen for auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          setUserTier(session.user.user_metadata?.tier ?? null);
+        } else {
+          setUserTier(null);
+        }
+      }
+    );
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Only allow tier 2 users
+  if (checkingAuth) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <p>Checking permissions...</p>
+      </main>
+    );
+  }
+  if (!user || userTier !== 2) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="bg-white p-8 rounded shadow text-center">
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-gray-600">
+            You must be a Tier 2 user to upload covers.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -30,30 +84,33 @@ const Cover = () => {
       return;
     }
 
-    const { data: publicUrlData, error: publicUrlError } = supabase.storage
-      .from("bookcovers")
-      .getPublicUrl(filePath);
+    // Use signed URL for private bucket
+    const { data: signedUrlData, error: signedUrlError } =
+      await supabase.storage
+        .from("bookcovers")
+        .createSignedUrl(filePath, 60 * 60);
 
-    if (publicUrlError) {
-      setError(publicUrlError.message);
+    if (signedUrlError) {
+      setError(signedUrlError.message);
       setUploading(false);
       return;
     }
 
-    setImageUrl(publicUrlData.publicUrl);
+    setImageUrl(signedUrlData.signedUrl);
     setUploading(false);
-    setUploadSuccess(true);  // Set success state here
+    setUploadSuccess(true);
   };
-
-    const router = useRouter();
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       {/* Header */}
       <div className="flex flex-col items-center mb-8">
-        <div onClick={() => router.push("/")} className="cursor-pointer flex items-center gap-2 text-center font-bold text-2xl text-gray-800">
+        <div
+          onClick={() => router.push("/")}
+          className="cursor-pointer flex items-center gap-2 text-center font-bold text-2xl text-gray-800"
+        >
           <Library className="h-7 w-7" />
-          <span >BookShelf</span>
+          <span>BookShelf</span>
         </div>
         <p className="text-gray-500 text-xs mt-1">
           A curated list of books from supabase
@@ -86,9 +143,7 @@ const Cover = () => {
         </div>
 
         {/* Feedback */}
-        {uploading && (
-          <p className="text-center text-gray-500">Uploading...</p>
-        )}
+        {uploading && <p className="text-center text-gray-500">Uploading...</p>}
         {error && (
           <p className="text-center text-red-600 font-medium">{error}</p>
         )}

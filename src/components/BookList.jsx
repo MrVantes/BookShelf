@@ -55,8 +55,12 @@ function BookCard({ book, viewMode, onEdit }) {
         >
           {book.title}
         </a>
-        <p className="text-xs text-gray-600 dark:text-gray-300">{book.author}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 italic">{book.language}</p>
+        <p className="text-xs text-gray-600 dark:text-gray-300">
+          {book.author}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+          {book.language}
+        </p>
         <p className="text-xs text-gray-400 dark:text-gray-500">
           {book.pages} pages — {book.year > 0 ? book.year : `${-book.year} BC`}
         </p>
@@ -106,42 +110,45 @@ export default function BookList({ books, viewMode, isLoading = false }) {
     }
   };
 
-const fetchStoredImages = async () => {
-  const { data: listData, error: listError } = await supabase.storage
-    .from("bookcovers")
-    .list("covers", {
-      limit: 100,
-      sortBy: { column: "name", order: "asc" },
-    });
+  const fetchStoredImages = async () => {
+    const { data: listData, error: listError } = await supabase.storage
+      .from("bookcovers")
+      .list("covers", {
+        limit: 100,
+        sortBy: { column: "name", order: "asc" },
+      });
 
-  if (listError) {
-    console.error("Failed to list files:", listError.message);
-    return;
-  }
+    if (listError) {
+      console.error("Failed to list files:", listError.message);
+      return;
+    }
 
-  const urls = await Promise.all(
-    listData.map(async (item) => {
-      const { data: publicUrlData, error: publicUrlError } = supabase.storage
-        .from("bookcovers")
-        .getPublicUrl(`covers/${item.name}`);
+    const urls = await Promise.all(
+      listData.map(async (item) => {
+        // Use signed URL for RLS-protected bucket
+        const { data: signedUrlData, error: signedUrlError } =
+          await supabase.storage
+            .from("bookcovers")
+            .createSignedUrl(`covers/${item.name}`, 60 * 60); // 1 hour
 
-      if (publicUrlError) {
-        console.error(`Failed public URL for ${item.name}:`, publicUrlError.message);
-        return null;
-      }
+        if (signedUrlError) {
+          console.error(
+            `Failed signed URL for ${item.name}:`,
+            signedUrlError.message
+          );
+          return null;
+        }
 
-      return {
-        name: item.name,
-        url: publicUrlData.publicUrl,
-      };
-    })
-  );
+        return {
+          name: item.name,
+          url: signedUrlData.signedUrl,
+        };
+      })
+    );
 
-  const validUrls = urls.filter(Boolean);
-  setStoredImages(validUrls);
-};
-
-
+    const validUrls = urls.filter(Boolean);
+    setStoredImages(validUrls);
+  };
 
   useEffect(() => {
     async function loadCovers() {
@@ -150,11 +157,12 @@ const fetchStoredImages = async () => {
         const booksWithImages = await Promise.all(
           books.map(async (book) => {
             if (book.coverUrl && book.coverUrl.trim() !== "") {
-              const { data } = supabase.storage
+              // Use signed URL for private bucket
+              const { data, error } = await supabase.storage
                 .from("bookcovers")
-                .getPublicUrl(book.coverUrl.trim());
-              const publicUrl = data?.publicUrl;
-              return { ...book, coverUrl: publicUrl };
+                .createSignedUrl(book.coverUrl.trim(), 60 * 60);
+              const signedUrl = data?.signedUrl;
+              return { ...book, coverUrl: signedUrl };
             }
 
             const filename = book.title
@@ -226,45 +234,64 @@ const fetchStoredImages = async () => {
 
       {showModal && activeBook && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 py-4 px-10 rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto">
             <h2 className="text-lg font-semibold mb-4 text-center">
               Select a Cover for{" "}
               <span className="text-blue-600">{activeBook.title}</span>
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className=" grid grid-cols-2 md:grid-cols-4 gap-4">
               {storedImages.map((img, idx) => (
                 <img
                   key={idx}
                   src={img.url}
                   alt={`Cover ${idx}`}
                   onClick={async () => {
-                    // Update the coverUrl in the Supabase table for this book
-                    const { error } = await supabase
-                      .from("Books")
-                      .update({ coverUrl: `covers/${img.name}` })
-                      .eq("id", activeBook.id);
+                    try {
+                      const res = await fetch(
+                        "https://ekxqpkvvdonvpliouoes.supabase.co/functions/v1/book-covers",
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+                          },
+                          body: JSON.stringify({
+                            id: activeBook.id,
+                            coverUrl: `covers/${img.name}`,
+                          }),
+                        }
+                      );
 
-                    if (error) {
-                      alert("Failed to update cover: " + error.message);
-                      return;
+                      const result = await res.json();
+
+                      if (!res.ok || result.error) {
+                        alert(
+                          "Failed to update cover: " +
+                            (result.error || "Unknown error")
+                        );
+                        return;
+                      }
+
+                      // Update local state
+                      const updated = booksWithCovers.map((book) =>
+                        book.id === activeBook.id
+                          ? { ...book, coverUrl: img.url }
+                          : book
+                      );
+                      setBooksWithCovers(updated);
+                      setShowModal(false);
+                      setActiveBook(null);
+                    } catch (error) {
+                      console.error("Error calling edge function:", error);
+                      alert("Something went wrong.");
                     }
-
-                    // Update local state to reflect the new cover
-                    const updated = booksWithCovers.map((book) =>
-                      book.id === activeBook.id
-                        ? { ...book, coverUrl: img.url }
-                        : book
-                    );
-                    setBooksWithCovers(updated);
-                    setShowModal(false);
-                    setActiveBook(null);
                   }}
-                  className="cursor-pointer hover:scale-105 transition rounded shadow border border-gray-200"
+                  className="object-cover w-30 h-30 cursor-pointer hover:scale-105 transition rounded shadow border border-gray-200"
                 />
               ))}
             </div>
             <button
-              className="mt-6 block mx-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+              className="mt-6 block mx-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded cursor-pointer text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
               onClick={() => {
                 setShowModal(false);
                 setActiveBook(null);

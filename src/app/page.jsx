@@ -3,14 +3,27 @@
 import { useState, useEffect, useCallback } from "react";
 import debounce from "lodash/debounce";
 import { Input } from "../components/ui/input";
-import { Search, ChevronLeft, ChevronRight, Library, Upload } from "lucide-react";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Library,
+  Upload,
+} from "lucide-react";
 import FilterBar from "../components/FilterBar";
 import BookList from "../components/BookList";
 import { Button } from "../components/ui/button";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 // Replace <project-ref> with your Supabase project ref
-const SUPABASE_EDGE_URL = "https://ekxqpkvvdonvpliouoes.supabase.co/functions/v1/search-books";
+const SUPABASE_EDGE_URL =
+  "https://ekxqpkvvdonvpliouoes.supabase.co/functions/v1/search-books";
 
 export default function Home() {
   // UI/filter state
@@ -31,6 +44,8 @@ export default function Home() {
   const [languages, setLanguages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+  const [userTier, setUserTier] = useState(null);
 
   // Filter options
   const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -81,7 +96,7 @@ export default function Home() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             search: debouncedSearch,
@@ -115,6 +130,33 @@ export default function Home() {
     itemsPerPage,
   ]);
 
+  useEffect(() => {
+    // Check user on mount
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        // Get tier directly from user metadata
+        setUserTier(data.user.user_metadata?.tier ?? null);
+      } else {
+        setUserTier(null);
+      }
+    });
+    // Listen for auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          setUserTier(session.user.user_metadata?.tier ?? null);
+        } else {
+          setUserTier(null);
+        }
+      }
+    );
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
   const router = useRouter();
 
   return (
@@ -122,15 +164,52 @@ export default function Home() {
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm z-10 shadow-sm">
         <div className="w-full max-w-7xl mx-auto px-4 relative">
-          {/* Upload Button (top right) */}
-          <button
-            onClick={() => router.push("/upload-cover")}
-            className="cursor-pointer absolute right-4 lg:right-8 top-2 flex items-center gap-1 border-1 border-gray-200 hover:bg-slate-200 px-3 py-1.5 rounded-md shadow transition font-medium"
-            aria-label="Upload Book Cover"
-          >
-            <Upload className="w-5 h-5" />
-            <span className="hidden sm:inline">Upload</span>
-          </button>
+          {/* Auth Button (top right) */}
+          {!user ? (
+            <button
+              onClick={() => router.push("/login")}
+              className="cursor-pointer absolute right-4 lg:right-8 top-2 flex items-center gap-1 border-1 border-gray-200 hover:bg-slate-200 px-3 py-1.5 rounded-md shadow transition font-medium"
+              aria-label="Login"
+            >
+              <span className="hidden sm:inline">Login</span>
+            </button>
+          ) : userTier === 2 ? (
+            <>
+              <button
+                onClick={() => router.push("/upload-cover")}
+                className="cursor-pointer absolute right-24 lg:right-28 top-2 flex items-center gap-1 border-1 border-gray-200 hover:bg-slate-200 px-3 py-1.5 rounded-md shadow transition font-medium"
+                aria-label="Upload Book Cover"
+              >
+                <Upload className="w-5 h-5" />
+                <span className="hidden sm:inline">Upload</span>
+              </button>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setUser(null);
+                  setUserTier(null);
+                  router.push("/");
+                }}
+                className="cursor-pointer absolute right-4 lg:right-8 top-2 flex items-center gap-1 border-1 border-gray-200 hover:bg-red-100 px-3 py-1.5 rounded-md shadow transition font-medium text-red-600"
+                aria-label="Logout"
+              >
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setUser(null);
+                setUserTier(null);
+                router.push("/");
+              }}
+              className="cursor-pointer absolute right-4 lg:right-8 top-2 flex items-center gap-1 border-1 border-gray-200 hover:bg-red-100 px-3 py-1.5 rounded-md shadow transition font-medium text-red-600"
+              aria-label="Logout"
+            >
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          )}
           {/* Title */}
           <div className="flex flex-col items-center justify-center h-16">
             <div className="flex items-center gap-2 text-center font-bold text-2xl">
